@@ -15,7 +15,6 @@ from langchain_core.prompts import PromptTemplate
 
 # ML Models
 from transformers import pipeline
-import torch
 
 # Utilities
 import time
@@ -67,7 +66,7 @@ st.markdown("""
 
 MODEL_CONFIG = {
     "embeddings_model": "sentence-transformers/all-MiniLM-L6-v2",
-    "llm_model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "llm_model": "google/flan-t5-base",
     "max_new_tokens": 150,
     "chunk_size": 400,
     "chunk_overlap": 50,
@@ -149,25 +148,20 @@ def load_embeddings():
 
 @st.cache_resource
 def load_llm():
-    """Load and cache LLM with better configuration"""
     try:
-        device = 0 if torch.cuda.is_available() else -1
-        
         pipe = pipeline(
-            "text-generation",
+            "text2text-generation",
             model=MODEL_CONFIG["llm_model"],
             max_new_tokens=MODEL_CONFIG["max_new_tokens"],
-            repetition_penalty=1.1,
-            do_sample=False,
-            return_full_text=False,
-            device=device,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+            do_sample=False
         )
-        
+
         return HuggingFacePipeline(pipeline=pipe)
+
     except Exception as e:
         st.error(f"Error loading LLM: {e}")
         return None
+
 
 def process_document(uploaded_file) -> Optional[RetrievalQA]:
     """Process uploaded document and create QA chain"""
