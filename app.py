@@ -10,7 +10,7 @@ from typing import Optional, List
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
-from langchain.prompts import prompt_template
+from langchain_core.prompts import prompt_template
 from langchain_huggingface import HuggingFaceEmbeddings, HuggingFacePipeline
 from langchain_chroma import Chroma
 
