@@ -200,14 +200,27 @@ def render_chat_history(chat_history, dev_mode):
     for q, a, sources in chat_history:
         with st.chat_message("user"):
             st.write(q)
+
         with st.chat_message("assistant"):
             st.write(a)
+
             if sources and dev_mode:
                 st.markdown("**📚 Sources:**")
+
+                seen = set()
+
                 for doc in sources:
-                    source = doc.metadata.get("source", "Document")
+                    source = os.path.basename(
+                        doc.metadata.get("source", "Document")
+                    )
                     page = doc.metadata.get("page", "N/A")
-                    st.markdown(f"• {source} (page {page})")
+
+                    key = (source, page)
+
+                    if key not in seen:
+                        seen.add(key)
+                        st.markdown(f"• {source} (page {page})")
+
 
 # =========================
 # Main Application Logic
