@@ -150,7 +150,7 @@ def load_embeddings():
 def load_llm():
     try:
         pipe = pipeline(
-            "text2text-generation",
+            "text-generation",
             model=MODEL_CONFIG["llm_model"],
             max_new_tokens=MODEL_CONFIG["max_new_tokens"],
             do_sample=False
