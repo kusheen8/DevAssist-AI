@@ -160,7 +160,7 @@ def process_document(uploaded_file) -> Optional[RetrievalQA]:
 INSTRUCTIONS:
 1. Answer ONLY using the provided context.
 2. If the answer is not found, reply: "❌ I could not find this information in the uploaded document."
-3. Be concise and structured, using bullet points for clarity.
+3.Give a short 1–2 sentence explanation using the context, using bullet points for clarity.
 
 Context:
 {context}
