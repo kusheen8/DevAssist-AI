@@ -97,7 +97,7 @@ def load_embeddings():
 def load_llm():
     try:
         return ChatGroq(
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             api_key=st.secrets["GROQ_API_KEY"],
             temperature=0
         )
