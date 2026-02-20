@@ -2,7 +2,6 @@ import streamlit as st
 import os
 import tempfile
 import shutil
-import time
 import logging
 from typing import Optional, List
 
@@ -11,12 +10,9 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_core.prompts import PromptTemplate
-from langchain_huggingface import HuggingFaceEmbeddings, HuggingFacePipeline
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
-
-
-# Hugging Face
-from transformers import pipeline
+from langchain_groq import ChatGroq
 
 # =========================
 # Configuration & Setup
@@ -32,13 +28,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS Styling
 st.markdown("""
 <style>
     .stApp {max-width: 1200px; margin: 0 auto;}
-    .sidebar .sidebar-content {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
     .metric-card {
         background: white; padding: 1rem; border-radius: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -52,15 +44,13 @@ st.markdown("""
 
 MODEL_CONFIG = {
     "embeddings_model": "sentence-transformers/all-MiniLM-L6-v2",
-    "llm_model": "google/flan-t5-base",
-    "max_new_tokens": 150,
     "chunk_size": 400,
     "chunk_overlap": 50,
     "retrieval_k": 3
 }
 
 DEV_KEYWORDS = [
-    "project", "document", "file", "system", "architecture", "stack", 
+    "project", "document", "file", "system", "architecture", "stack",
     "prd", "assignment", "spec", "design", "implementation", "technology",
     "requirements", "features", "summary", "codebase", "frontend", "backend",
     "api", "database", "process", "workflow", "deployment", "code", "module",
@@ -74,11 +64,6 @@ DEV_KEYWORDS = [
 def create_directories():
     for dir_name in ["uploads", "data", "temp"]:
         os.makedirs(dir_name, exist_ok=True)
-
-def clean_temp_files():
-    if os.path.exists("temp"):
-        shutil.rmtree("temp")
-    os.makedirs("temp", exist_ok=True)
 
 def is_dev_question(query: str) -> bool:
     query_lower = query.lower()
@@ -106,18 +91,19 @@ def load_embeddings():
         return HuggingFaceEmbeddings(model_name=MODEL_CONFIG["embeddings_model"])
     except Exception as e:
         st.error(f"Error loading embeddings: {e}")
+        return None
 
 @st.cache_resource
 def load_llm():
     try:
-        pipe = pipeline(
-            "text2text-generation",
-            model=MODEL_CONFIG["llm_model"],
-            max_new_tokens=MODEL_CONFIG["max_new_tokens"]
+        return ChatGroq(
+            model="llama3-8b-8192",
+            api_key=st.secrets["GROQ_API_KEY"],
+            temperature=0
         )
-        return HuggingFacePipeline(pipeline=pipe)
     except Exception as e:
         st.error(f"Error loading LLM: {e}")
+        return None
 
 # =========================
 # Document Processing
@@ -145,6 +131,9 @@ def process_document(uploaded_file) -> Optional[RetrievalQA]:
         st.sidebar.info(f"📑 Created {len(chunks)} text chunks")
 
         embeddings = load_embeddings()
+        if not embeddings:
+            return None
+
         vectordb = Chroma(
             persist_directory="./data",
             embedding_function=embeddings,
@@ -154,13 +143,16 @@ def process_document(uploaded_file) -> Optional[RetrievalQA]:
 
         retriever = vectordb.as_retriever(search_kwargs={"k": MODEL_CONFIG["retrieval_k"]})
         llm = load_llm()
+        if not llm:
+            return None
 
         prompt_template = """You are DevAssist AI, a specialized assistant for developer documentation.
 
 INSTRUCTIONS:
-1. Answer ONLY using the provided context.
-2. If the answer is not found, reply: "❌ I could not find this information in the uploaded document."
-3.Give a short 1–2 sentence explanation using the context, using bullet points for clarity.
+1. Answer ONLY using the provided context below.
+2. If the answer is not in the context, reply exactly: "❌ I could not find this information in the uploaded document."
+3. Be accurate, concise, and specific. Do not make up information.
+4. Use bullet points where helpful.
 
 Context:
 {context}
@@ -200,27 +192,18 @@ def render_chat_history(chat_history, dev_mode):
     for q, a, sources in chat_history:
         with st.chat_message("user"):
             st.write(q)
-
         with st.chat_message("assistant"):
             st.write(a)
-
             if sources and dev_mode:
                 st.markdown("**📚 Sources:**")
-
                 seen = set()
-
                 for doc in sources:
-                    source = os.path.basename(
-                        doc.metadata.get("source", "Document")
-                    )
+                    source = os.path.basename(doc.metadata.get("source", "Document"))
                     page = doc.metadata.get("page", "N/A")
-
                     key = (source, page)
-
                     if key not in seen:
                         seen.add(key)
                         st.markdown(f"• {source} (page {page})")
-
 
 # =========================
 # Main Application Logic
@@ -276,7 +259,7 @@ def main():
         render_chat_history(st.session_state.chat_history, dev_mode)
 
     st.markdown("---")
-    st.caption("*⚙️ DevAssist AI — Built with Streamlit, LangChain, and Hugging Face*")
+    st.caption("*⚙️ DevAssist AI — Built with Streamlit, LangChain, and Groq*")
 
 if __name__ == "__main__":
     main()
