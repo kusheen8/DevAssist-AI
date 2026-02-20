@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import tempfile
 import shutil
+import chromadb
 import logging
 from typing import Optional, List
 
@@ -134,6 +135,12 @@ def process_document(uploaded_file) -> Optional[RetrievalQA]:
         if not embeddings:
             return None
 
+        client = chromadb.PersistentClient(path="./data")
+        try:
+            client.delete_collection("active_document")
+        except:
+            pass
+
         vectordb = Chroma(
             persist_directory="./data",
             embedding_function=embeddings,
@@ -249,9 +256,14 @@ def main():
             sources = []
         else:
             with st.spinner("🔍 Searching the document..."):
-                result = st.session_state.qa_chain.invoke({"query": query})
-                answer = format_answer(result["result"])
-                sources = result.get("source_documents", [])
+                try:
+                    result = st.session_state.qa_chain.invoke({"query": query})
+                    answer = format_answer(result["result"])
+                    sources = result.get("source_documents", [])
+                except Exception as e:
+                    answer = "❌ Error getting answer. Please try again."
+                    sources = []
+                    st.error(str(e))
         st.session_state.chat_history.append((query, answer, sources))
         st.rerun()
 
